@@ -1592,6 +1592,24 @@ class TestFormParser(unittest.TestCase):
         with self.assertRaises(ValueError):
             MultipartParser(b"bound", max_size="foo")  # type: ignore[arg-type]
 
+    def test_multipart_none_callbacks(self) -> None:
+        callbacks: Any = {
+            "on_part_begin": None,
+            "on_part_data": None,
+            "on_part_end": None,
+            "on_header_begin": None,
+            "on_header_field": None,
+            "on_header_value": None,
+            "on_header_end": None,
+            "on_headers_finished": None,
+            "on_end": None,
+        }
+        parser = MultipartParser(b"boundary", callbacks)
+        data = b"--boundary\r\nX: y\r\n\r\nbody\r\n--boundary--\r\n"
+
+        self.assertEqual(parser.write(data), len(data))
+        parser.finalize()
+
     def test_boundary_too_long(self) -> None:
         with self.assertRaisesRegex(FormParserError, "Boundary length 257 exceeds maximum of 256"):
             MultipartParser(b"x" * 257)
