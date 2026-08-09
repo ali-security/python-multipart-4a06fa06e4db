@@ -1606,7 +1606,7 @@ class TestFormParser(unittest.TestCase):
         parser = MultipartParser(b"boundary")
         parser.set_callback("header_begin", on_header_begin)
         parser.set_callback("header_field", on_header_field)
-        parser.set_callback("field_start", None)
+        parser.set_callback("part_data", None)
         data = b"--boundary\r\nX: y\r\n\r\nbody\r\n--boundary--\r\n"
         parser.write(data)
 

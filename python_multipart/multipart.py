@@ -1092,11 +1092,10 @@ class MultipartParser(BaseParser):
         super().set_callback(name, new_func)
         if name in ("part_data", "header_field", "header_value"):
             callback = _noop_data if new_func is None else new_func
+            setattr(self, "_on_" + name, callback)
         elif name in ("part_begin", "part_end", "header_begin", "header_end", "headers_finished", "end"):
             callback = _noop_event if new_func is None else new_func
-        else:
-            return
-        setattr(self, "_on_" + name, callback)
+            setattr(self, "_on_" + name, callback)
 
     def write(self, data: bytes) -> int:
         """Write some data to the parser, which will perform size verification,
