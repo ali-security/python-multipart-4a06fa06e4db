@@ -365,6 +365,10 @@ class TestBaseParser(unittest.TestCase):
             nonlocal called
             called += 1
 
+        def on_data(data: bytes, start: int, end: int) -> None:
+            nonlocal called
+            called += 1
+
         self.b.set_callback("foo", on_foo)  # type: ignore[arg-type]
         self.b.callback("foo")  # type: ignore[arg-type]
         self.assertEqual(called, 1)
@@ -372,6 +376,12 @@ class TestBaseParser(unittest.TestCase):
         self.b.set_callback("foo", None)  # type: ignore[arg-type]
         self.b.callback("foo")  # type: ignore[arg-type]
         self.assertEqual(called, 1)
+
+        self.b.set_callback("data", on_data)
+        self.b.callback("data", b"", 0, 0)
+        self.assertEqual(called, 1)
+        self.b.callback("data", b"x", 0, 1)
+        self.assertEqual(called, 2)
 
 
 class TestQuerystringParser(unittest.TestCase):
@@ -412,6 +422,25 @@ class TestQuerystringParser(unittest.TestCase):
         self.p.write(b"foo=bar")
 
         self.assert_fields((b"foo", b"bar"))
+
+    def test_no_callbacks(self) -> None:
+        parser = QuerystringParser()
+
+        self.assertEqual(parser.write(b"foo=bar"), 7)
+        parser.finalize()
+
+    def test_none_callbacks(self) -> None:
+        callbacks: Any = {
+            "on_field_start": None,
+            "on_field_name": None,
+            "on_field_data": None,
+            "on_field_end": None,
+            "on_end": None,
+        }
+        parser = QuerystringParser(callbacks)
+
+        self.assertEqual(parser.write(b"foo=bar"), 7)
+        parser.finalize()
 
     def test_querystring_blank_beginning(self) -> None:
         self.p.write(b"&foo=bar")
