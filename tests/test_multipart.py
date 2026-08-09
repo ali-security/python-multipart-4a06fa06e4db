@@ -1592,6 +1592,27 @@ class TestFormParser(unittest.TestCase):
         with self.assertRaises(ValueError):
             MultipartParser(b"bound", max_size="foo")  # type: ignore[arg-type]
 
+    def test_multipart_set_callback(self) -> None:
+        header_begins = 0
+        header_fields: list[bytes] = []
+
+        def on_header_begin() -> None:
+            nonlocal header_begins
+            header_begins += 1
+
+        def on_header_field(data: bytes, start: int, end: int) -> None:
+            header_fields.append(data[start:end])
+
+        parser = MultipartParser(b"boundary")
+        parser.set_callback("header_begin", on_header_begin)
+        parser.set_callback("header_field", on_header_field)
+        parser.set_callback("field_start", None)
+        data = b"--boundary\r\nX: y\r\n\r\nbody\r\n--boundary--\r\n"
+        parser.write(data)
+
+        self.assertEqual(header_begins, 1)
+        self.assertEqual(header_fields, [b"X"])
+
     def test_multipart_none_callbacks(self) -> None:
         callbacks: Any = {
             "on_part_begin": None,
