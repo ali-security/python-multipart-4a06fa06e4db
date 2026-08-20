@@ -1,5 +1,5 @@
 schema = 1
-command = ["uv", "run", "python", ".http-compliance/tools/adapters/python_multipart_adapter.py"]
+command = ["uv", "run", "python", "tests/http_compliance_adapter.py"]
 suites = ["multipart"]
 profiles = ["multipart.form-data.receiver-core"]
 exclude_tags = ["preamble", "transport-padding"]

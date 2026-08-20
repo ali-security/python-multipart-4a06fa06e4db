@@ -41,47 +41,10 @@ jobs:
       - name: Run rename test
         run: scripts/rename
 
-  http-compliance:
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          python-version: "3.14"
-          enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Checkout HTTP Compliance
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: Kludex/http-compliance
-          ref: a6217077c938b59ae7a46495349831387d2f60f0
-          path: .http-compliance
-          persist-credentials: false
-
-      - name: Build HTTP Compliance
-        run: cargo build --locked --release --manifest-path .http-compliance/Cargo.toml
-
-      - name: Run HTTP Compliance
-        uses: Kludex/http-compliance@a6217077c938b59ae7a46495349831387d2f60f0
-        with:
-          config: .github/http-compliance.toml
-          runner-path: .http-compliance/target/release/http-compliance
-
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
     if: always()
-    needs: [test, http-compliance]
+    needs: [test]
     runs-on: ubuntu-latest
 
     permissions:
