@@ -100,7 +100,7 @@ def parse_multipart(message: dict[str, Any]) -> dict[str, Any]:
             "protocol": PROTOCOL,
             "id": message["id"],
             "status": "incomplete",
-            "stage": "body" if headers_finished else "boundary",
+            "stage": "body" if headers_finished else ("part-headers" if part_started else "boundary"),
             "message": "end of input before closing multipart delimiter",
         }
     return {"op": "result", "protocol": PROTOCOL, "id": message["id"], "status": "accepted", "events": events}

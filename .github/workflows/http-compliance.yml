@@ -32,18 +32,33 @@ jobs:
       - name: Install Rust
         run: rustup toolchain install 1.85.0 --profile minimal
 
+      - name: Cache HTTP Compliance
+        id: cache-http-compliance
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            .http-compliance
+            .http-compliance-target
+          key: http-compliance-${{ runner.os }}-${{ runner.arch }}-rust-1.85.0-a6217077
+          restore-keys: http-compliance-${{ runner.os }}-${{ runner.arch }}-rust-1.85.0-
+
       - name: Install HTTP Compliance
+        if: steps.cache-http-compliance.outputs.cache-hit != 'true'
+        env:
+          CARGO_TARGET_DIR: .http-compliance-target
         run: >-
           cargo +1.85.0 install
           --locked
           --git https://github.com/Kludex/http-compliance.git
           --rev a6217077c938b59ae7a46495349831387d2f60f0
-          --root "${RUNNER_TEMP}/http-compliance"
+          --root .http-compliance
           http-compliance
 
       - name: Run HTTP Compliance
         uses: Kludex/http-compliance@a6217077c938b59ae7a46495349831387d2f60f0
         with:
           config: .github/http-compliance.toml
-          runner-path: ${{ runner.temp }}/http-compliance/bin/http-compliance
+          runner-path: .http-compliance/bin/http-compliance
           upload-results: false
