@@ -402,10 +402,40 @@ class TestQuerystringParser(unittest.TestCase):
         self.p.write(b"f=baz")
         self.assert_fields((b"asdf", b"baz"))
 
-    def test_semicolon_separator(self) -> None:
-        self.p.write(b"foo=bar;asdf=baz")
+    def test_semicolon_is_data_not_a_field_separator(self) -> None:
+        self.p.write(b"role=user&x=;role=admin")
 
-        self.assert_fields((b"foo", b"bar"), (b"asdf", b"baz"))
+        self.assert_fields((b"role", b"user"), (b"x", b";role=admin"))
+
+    def test_semicolon_heavy_body_is_parsed_in_linear_time(self) -> None:
+        """A ";"-separated body must not cost O(len(body) ** 2) to parse.
+
+        Every field iteration used to run a failing "&" scan across the whole
+        remaining buffer, so ~1 MiB of ";"-separated chunks burned tens of seconds
+        of CPU (CVE-2026-53539).  Now that ";" is ordinary data, the body is a
+        single field found with a couple of scans; before the fix this body was
+        split into half a million fields and tripped the 30s per-test timeout.
+        """
+        chunks = 524288
+        payload = b"a=" + b"x;" * chunks  # ~1 MiB
+
+        self.p.write(payload)
+
+        self.assert_fields((b"a", b"x;" * chunks))
+
+    def test_truncated_write_does_not_look_past_max_size(self) -> None:
+        # Once max_size truncates the chunk, the separator and equals-sign
+        # searches are bounded by the truncated length, so bytes beyond the
+        # limit are never emitted - neither as field data ...
+        self.p.max_size = 10
+        self.p.write(b"a=" + b"1" * 1000 + b"&b=c")
+        self.assert_fields((b"a", b"1" * 8))
+
+        # ... nor as a field name.
+        self.reset()
+        self.p.max_size = 5
+        self.p.write(b"abcdefgh=xyz")
+        self.assert_fields()
 
     def test_too_large_field(self) -> None:
         self.p.max_size = 15
