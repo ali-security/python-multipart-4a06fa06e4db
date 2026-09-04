@@ -298,10 +298,72 @@ class TestParseOptionsHeader(unittest.TestCase):
         # If vulnerable, this test wouldn't finish, the line above would hang
         self.assertIn(b'"\\', p[b"!"])
 
-    def test_handles_rfc_2231(self) -> None:
+    def test_ignores_rfc_2231_extended_param(self) -> None:
+        # RFC 7578 §4.2 forbids the RFC 5987/2231 extended syntax, so the
+        # decoded `param*` value is not exposed under `param`.
         t, p = parse_options_header(b"text/plain; param*=us-ascii'en-us'encoded%20message")
 
-        self.assertEqual(p[b"param"], b"encoded message")
+        self.assertEqual(t, b"text/plain")
+        self.assertEqual(p, {})
+
+    def test_plain_param_authoritative_over_extended(self) -> None:
+        # When both plain and extended forms are present, the plain one wins
+        # and the extended one is ignored.
+        _, p = parse_options_header(b"form-data; name=\"comment\"; name*=utf-8''other")
+
+        self.assertEqual(p, {b"name": b"comment"})
+
+    def test_plain_filename_authoritative_over_extended(self) -> None:
+        # A smuggled `filename*` must not override the plain `filename` an
+        # upstream validator would have inspected.
+        _, p = parse_options_header(b"form-data; name=\"f\"; filename=\"safe.txt\"; filename*=utf-8''evil.php")
+
+        self.assertEqual(p, {b"name": b"f", b"filename": b"safe.txt"})
+
+    def test_ignores_percent_encoded_bytes_in_extended_param(self) -> None:
+        # The extended syntax is never percent-decoded, so traversal segments
+        # and control bytes cannot be smuggled through it.
+        _, p = parse_options_header(b"form-data; filename=\"safe.txt\"; filename*=utf-8''..%2Fevil%00.php")
+
+        self.assertEqual(p, {b"filename": b"safe.txt"})
+
+    def test_ignores_rfc_2231_continuation_filename(self) -> None:
+        _, p = parse_options_header(b'form-data; name="f"; filename*0="a"; filename*1="b.txt"')
+
+        self.assertEqual(p, {b"name": b"f"})
+
+    def test_ignores_oversized_rfc_2231_index(self) -> None:
+        t, p = parse_options_header("text/plain; filename*" + ("1" * 4301) + "*=utf-8''x")
+
+        self.assertEqual(t, b"text/plain")
+        self.assertEqual(p, {})
+
+    def test_ignores_mixed_rfc_2231_continuations(self) -> None:
+        t, p = parse_options_header("text/plain; filename*=utf-8''a; filename*0*=utf-8''b")
+
+        self.assertEqual(t, b"text/plain")
+        self.assertEqual(p, {})
+
+    def test_ignores_extended_param_case_insensitively(self) -> None:
+        _, p = parse_options_header(b"text/plain; UPPER*=utf-8''X")
+
+        self.assertEqual(p, {})
+
+    def test_preserves_quoted_semicolons_and_escapes(self) -> None:
+        _, p = parse_options_header(b'text/plain; a="x;y"; b="esc \\" quote"')
+
+        self.assertEqual(p, {b"a": b"x;y", b"b": b'esc " quote'})
+
+    def test_preserves_content_type_case(self) -> None:
+        t, p = parse_options_header(b"Text/Plain; a=b")
+
+        self.assertEqual(t, b"Text/Plain")
+        self.assertEqual(p, {b"a": b"b"})
+
+    def test_preserves_backslash_unquoting_order(self) -> None:
+        _, p = parse_options_header(b'text/plain; q="a\\\\b"')
+
+        self.assertEqual(p, {b"q": b"a\\b"})
 
 
 class TestBaseParser(unittest.TestCase):
